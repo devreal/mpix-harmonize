@@ -7,43 +7,17 @@ find_package(MPI REQUIRED)
 
 
 # pull in reprompi
-if ( 0 )
-include(ExternalProject)
-ExternalProject_Add(reprompi
-        GIT_REPOSITORY git@github.com:hunsa/reprompi-dev-private.git
-        GIT_TAG time_barrier
-        #CMAKE_ARGS -DCOMPILE_BENCH_LIBRARY=ON -DOPTION_ENABLE_DEBUGGING=ON -DENABLE_GETTIME_REALTIME=ON
-        CMAKE_ARGS -DCOMPILE_BENCH_LIBRARY=ON -DENABLE_GETTIME_MONOTONIC=ON -DCOMPILE_SANITY_CHECK_TESTS=ON
-        PREFIX ${CMAKE_BINARY_DIR}/_deps/reprompi
-        INSTALL_DIR ${CMAKE_INSTALL_DIR}
-        )
-
-ExternalProject_Get_Property(reprompi install_dir)
-set(REPROMPI_LIB_DIR ${install_dir}/src/reprompi-build/lib)
-set(REPROMPI_INC_DIR ${install_dir}/src/reprompi-build/include)
-LINK_DIRECTORIES(${REPROMPI_LIB_DIR})
-#INCLUDE_DIRECTORIES("${install_dir}/src/reprompi")
-INCLUDE_DIRECTORIES("${install_dir}/src/reprompi-build/include")
-else (0)
-
 include(FetchContent)
 set(INCLUDE_PLATFORM_CONFIG_FILE "${CMAKE_BINARY_DIR}/_deps/reprompi-src/platform_files/default.cmake")
-set(COMPILE_BENCH_LIBRARY ON)
-set(ENABEL_GETTIME_MONOTONIC ON)
-set(COMPILE_SANITY_CHECK_TESTS ON)
+set(COMPILE_BENCH_LIBRARY ON CACHE BOOL "Compile Bench Library")
+set(ENABEL_GETTIME_MONOTONIC ON CACHE BOOL "Use gettime MONOTONIC")
+set(COMPILE_SANITY_CHECK_TESTS ON CACHE BOOL "Compile sanity checks")
 FetchContent_Declare(
     reproMPI
-    GIT_REPOSITORY      git@github.com:hunsa/reprompi-dev-private.git
-    GIT_TAG             time_barrier
+    GIT_REPOSITORY      git@github.com:devreal/reprompi-dev-private.git
+    GIT_TAG             cmake_subproject
 )
 FetchContent_MakeAvailable(reproMPI)
-FetchContent_GetProperties(reproMPI
-    SOURCE_DIR REPROMPI_SOURCE_DIR
-    BINARY_DIR REPROMPI_BINARY_DIR
-    )
-
-endif (0)
-
 
 add_library(mpix-harmonize SHARED mpix_harmonize.c)
 target_link_libraries(mpix-harmonize PUBLIC reproMPIbench MPI::MPI_C)
