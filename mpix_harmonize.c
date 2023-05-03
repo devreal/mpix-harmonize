@@ -103,6 +103,9 @@ int MPIX_Harmonize(
     if (barrier_stamp < 0.0) {
         /* resync required */
         clock_sync.sync_clocks();
+        /* streamline sync jitter */
+        int zero = 0;
+        MPI_Reduce(MPI_IN_PLACE, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
         data->last_sync_ts = REPROMPI_get_time();
         /* determine a new barrier timestamp */
         barrier_stamp = clock_sync.get_global_time(data->last_sync_ts) + data->barrier_ts_slack;
