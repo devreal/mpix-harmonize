@@ -17,6 +17,8 @@ static int keyval;
 
 static reprompib_sync_module_t clock_sync;
 
+static double bcast_time;
+
 
 static
 int delete_attr_cb(MPI_Comm comm, int comm_keyval,
@@ -24,58 +26,100 @@ int delete_attr_cb(MPI_Comm comm, int comm_keyval,
 static
 void reprompi_check_and_override_lib_env_params(int *argc, char ***argv);
 
+static double get_bcast_time(MPI_Comm comm);
+
+static int initialize_harmonize();
+
 static void init_reprompi();
+
+enum {
+    MPIX_HARMONIZE_SYNC_EXPIRED     = 1<<0,
+    MPIX_HARMONIZE_LAST_SYNC_FAILED = 1<<1,
+};
+
+typedef struct mpix_harmonize_state_t {
+    int sync_failed;
+    int comm_rank;
+    double last_sync_ts;
+    double barrier_ts_slack;
+} mpix_harmonize_state_t;
+
+static int get_harmonize_state(MPI_Comm comm, mpix_harmonize_state_t** data);
 
 int MPIX_Harmonize(
     MPI_Comm comm,
     int *outflag)
 {
     int ret;
-    /* inline synchronization: create a keyval for the data we want to attach to the communicator */
-    if (!initialized) {
-        static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
-        pthread_mutex_lock(&init_mtx);
-        if (!initialized) {
-            /* create a keyval
-             * TODO: add extra state and handle it in the callbacks
-             */
-            ret = MPI_Comm_create_keyval(MPI_COMM_NULL_COPY_FN, &delete_attr_cb, &keyval, NULL);
-            if (MPI_SUCCESS != ret) {
-                return ret;
-            }
-            init_reprompi();
-            initialized = true;
-        }
-        pthread_mutex_unlock(&init_mtx);
-    }
     int flag;
-    void* data;
-    ret = MPI_Comm_get_attr(comm, keyval, &data, &flag);
+
+    ret = initialize_harmonize();
     if (MPI_SUCCESS != ret) {
         return ret;
     }
-    if (!flag) {
-        /* first call on this comm, attach a new data */
-        data = malloc(sizeof(int));
-        ret = MPI_Comm_set_attr(comm, keyval, data);
+
+    mpix_harmonize_state_t* data;
+    ret = get_harmonize_state(comm, &data);
+    if (MPI_SUCCESS != ret) {
+        return ret;
+    }
+
+    /* a process forces a resync if:
+     * 1) it thinks the last sync was longer than 1s ago; or
+     * 2) the last sync failed.
+     **/
+    int need_resync = data->sync_failed ? MPIX_HARMONIZE_LAST_SYNC_FAILED : 0;
+    if (REPROMPI_get_time() > (data->last_sync_ts + 1.0)) {
+        need_resync |= MPIX_HARMONIZE_SYNC_EXPIRED;
+    }
+    double barrier_stamp = 0.0;
+    if (data->comm_rank == 0) {
+        ret = MPI_Reduce(MPI_IN_PLACE, &need_resync, 1, MPI_INT, MPI_MAX, 0, comm);
         if (MPI_SUCCESS != ret) {
+            fprintf(stderr, "MPI_Reduce returned %d\n", ret);
+            return ret;
+        }
+        if (need_resync) {
+            barrier_stamp = -1.0;
+            if (need_resync & MPIX_HARMONIZE_LAST_SYNC_FAILED) {
+                /* increase barrier time by 1.5x*/
+                data->barrier_ts_slack *= 1.5;
+            }
+        } else {
+            barrier_stamp = clock_sync.get_global_time(REPROMPI_get_time()) + data->barrier_ts_slack;
+        }
+    } else {
+        ret = MPI_Reduce(&need_resync, NULL, 1, MPI_INT, MPI_MAX, 0, comm);
+        if (MPI_SUCCESS != ret) {
+            fprintf(stderr, "MPI_Reduce returned %d\n", ret);
             return ret;
         }
     }
-
-    clock_sync.sync_clocks();
-    double barrier_stamp = clock_sync.get_global_time(REPROMPI_get_time()) + 0.001;
     ret = MPI_Bcast(&barrier_stamp, 1, MPI_DOUBLE, 0, comm);
     if (MPI_SUCCESS != ret) {
-        fprintf(stderr, "MPI_Barrier returned %d\n", ret);
+        fprintf(stderr, "MPI_Bcast returned %d\n", ret);
         return ret;
+    }
+    if (barrier_stamp < 0.0) {
+        /* resync required */
+        clock_sync.sync_clocks();
+        data->last_sync_ts = REPROMPI_get_time();
+        /* determine a new barrier timestamp */
+        barrier_stamp = clock_sync.get_global_time(data->last_sync_ts) + data->barrier_ts_slack;
+        ret = MPI_Bcast(&barrier_stamp, 1, MPI_DOUBLE, 0, comm);
+        if (MPI_SUCCESS != ret) {
+            fprintf(stderr, "MPI_Bcast returned %d\n", ret);
+            return ret;
+        }
     }
 
     /* check if we are within the time epoch */
     if( clock_sync.get_global_time(REPROMPI_get_time()) > barrier_stamp ) {
         *outflag = 0;
+        data->sync_failed = 1;
     } else {
         *outflag = 1;
+        data->sync_failed = 0;
     }
 
     /* wait for the epoch to end */
@@ -188,4 +232,65 @@ static void init_reprompi() {
     reprompib_init_sync_module(c_argc, c_argv, &clock_sync);
 
     clock_sync.init_sync();
+    bcast_time = get_bcast_time(MPI_COMM_WORLD);
+}
+
+static int initialize_harmonize() {
+    int ret;
+    /* inline synchronization: create a keyval for the data we want to attach to the communicator */
+    if (!initialized) {
+        static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_lock(&init_mtx);
+        if (!initialized) {
+            /* create a keyval
+             * TODO: add extra state and handle it in the callbacks
+             */
+            ret = MPI_Comm_create_keyval(MPI_COMM_NULL_COPY_FN, &delete_attr_cb, &keyval, NULL);
+            if (MPI_SUCCESS != ret) {
+                return ret;
+            }
+            init_reprompi();
+            initialized = true;
+        }
+        pthread_mutex_unlock(&init_mtx);
+    }
+    return MPI_SUCCESS;
+}
+
+static int get_harmonize_state(MPI_Comm comm, mpix_harmonize_state_t** data_ptr)
+{
+    int ret, flag;
+    mpix_harmonize_state_t *data;
+    ret = MPI_Comm_get_attr(comm, keyval, &data, &flag);
+    if (MPI_SUCCESS != ret) {
+        return ret;
+    }
+    if (!flag) {
+        /* first call on this comm, attach a new data */
+        data = calloc(1, sizeof(mpix_harmonize_state_t));
+        MPI_Comm_rank(comm, &data->comm_rank);
+        data->barrier_ts_slack = 2*bcast_time; // start with 2x the bcast time
+        ret = MPI_Comm_set_attr(comm, keyval, data);
+        if (MPI_SUCCESS != ret) {
+            return ret;
+        }
+    }
+    *data_ptr = data;
+    return ret;
+}
+
+static double get_bcast_time(MPI_Comm comm) {
+  int n_bcasts = 20;
+  double bcast_data = 1.0;  // same as timestamp later
+  double max_avg_time = 0.0;
+  double timestamp;
+
+  for(int i=0; i<n_bcasts; i++) {
+    timestamp = REPROMPI_get_time();
+    MPI_Bcast(&bcast_data, 1, MPI_DOUBLE, 0, comm);
+    max_avg_time += REPROMPI_get_time() - timestamp;
+  }
+  max_avg_time /= n_bcasts;
+  MPI_Allreduce(MPI_IN_PLACE, &max_avg_time, 1, MPI_DOUBLE, MPI_MAX, comm);
+  return max_avg_time;
 }
