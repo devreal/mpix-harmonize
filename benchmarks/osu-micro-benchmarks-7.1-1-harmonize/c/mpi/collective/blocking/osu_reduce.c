@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 
             timer = 0.0;
 
+            int iterations = 0;
             for (i = 0; i < options.iterations + options.skip; i++) {
                 if (i == options.skip) {
                     omb_papi_start(&papi_eventset);
@@ -169,12 +170,14 @@ int main(int argc, char *argv[])
                     check_flags[check_idx] = flag;
                     check_wtime[check_idx] = t_stop - t_start;
                     if (check_idx == (CHECK_EVERY-1) || i == (options.iterations + options.skip)) {
-                        MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, check_flags, check_idx+1, MPI_INT, MPI_LAND, MPI_COMM_WORLD));
+                        MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, check_flags, check_idx+1, MPI_INT,
+                                                MPI_LAND, MPI_COMM_WORLD));
                         for (int k = 0; k <= check_idx; ++k) {
                             if (check_flags[k]) {
                                 timer += check_wtime[k];
+                                iterations++;
                             } else {
-                                --i; // repeat this experiment
+                                //--i; // repeat this experiment
                             }
                         }
                     }
@@ -187,6 +190,10 @@ int main(int argc, char *argv[])
                 }
             }
             omb_papi_stop_and_print(&papi_eventset, size);
+            latency = (double)(timer * 1e6) / iterations;
+            int oi = options.iterations;
+            options.iterations = iterations;
+
             latency = (double)(timer * 1e6) / options.iterations;
 
             MPI_CHECK(MPI_Reduce(&latency, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0,
@@ -214,6 +221,7 @@ int main(int argc, char *argv[])
             if (0 != errors) {
                 break;
             }
+            options.iterations = oi;
         }
     }
     if (0 == rank && options.graph) {

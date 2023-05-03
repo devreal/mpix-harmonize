@@ -10,9 +10,11 @@
  */
 #include <osu_util_mpi.h>
 
+#define CHECK_EVERY 16
+
 int main(int argc, char *argv[])
 {
-    int i, j, numprocs, rank, size;
+    int i, j, numprocs, rank, size, flag;
     double latency = 0.0, t_start = 0.0, t_stop = 0.0;
     double timer = 0.0;
     double avg_time = 0.0, max_time = 0.0, min_time = 0.0;
@@ -30,6 +32,8 @@ int main(int argc, char *argv[])
     int mpi_type_itr = 0, mpi_type_size = 0, mpi_type_name_length = 0;
     char mpi_type_name_str[OMB_DATATYPE_STR_MAX_LEN];
     MPI_Datatype mpi_type_list[OMB_NUM_DATATYPES];
+    double check_wtime[CHECK_EVERY];
+    int check_flags[CHECK_EVERY];
 
     set_header(HEADER);
     set_benchmark_name("osu_allreduce");
@@ -117,6 +121,7 @@ int main(int argc, char *argv[])
             MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             timer = 0.0;
 
+            int iterations = 0;
             for (i = 0; i < options.iterations + options.skip; i++) {
                 if (i == options.skip) {
                     omb_papi_start(&papi_eventset);
@@ -133,12 +138,13 @@ int main(int argc, char *argv[])
                     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
                 }
 
+                MPI_CHECK(MPIX_Harmonize(MPI_COMM_WORLD, &flag));
                 t_start = MPI_Wtime();
                 MPI_CHECK(MPI_Allreduce(sendbuf, recvbuf, num_elements,
                                         omb_curr_datatype, MPI_SUM,
                                         MPI_COMM_WORLD));
                 t_stop = MPI_Wtime();
-                MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+                //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
                 if (options.validate) {
                     local_errors +=
@@ -146,7 +152,22 @@ int main(int argc, char *argv[])
                                       omb_curr_datatype);
                 }
                 if (i >= options.skip) {
-                    timer += t_stop - t_start;
+                    int check_idx = (i-options.skip) % CHECK_EVERY;
+                    check_flags[check_idx] = flag;
+                    check_wtime[check_idx] = t_stop - t_start;
+                    if (check_idx == (CHECK_EVERY-1) || i == (options.iterations + options.skip)) {
+                        MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, check_flags, check_idx+1, MPI_INT,
+                                                MPI_MIN, MPI_COMM_WORLD));
+                        for (int k = 0; k <= check_idx; ++k) {
+                            if (check_flags[k]) {
+                                timer += check_wtime[k];
+                                iterations++;
+                            } else {
+                                //--i; // repeat this experiment
+                            }
+                        }
+                    }
+
                     if (options.graph && 0 == rank) {
                         omb_graph_data->data[i - options.skip] =
                             (t_stop - t_start) * 1e6;
@@ -154,6 +175,10 @@ int main(int argc, char *argv[])
                 }
             }
             omb_papi_stop_and_print(&papi_eventset, size);
+            latency = (double)(timer * 1e6) / iterations;
+            int oi = options.iterations;
+            options.iterations = iterations;
+
             latency = (double)(timer * 1e6) / options.iterations;
 
             MPI_CHECK(MPI_Reduce(&latency, &min_time, 1, MPI_DOUBLE, MPI_MIN, 0,
@@ -182,6 +207,7 @@ int main(int argc, char *argv[])
             if (0 != errors) {
                 break;
             }
+            options.iterations = oi;
         }
     }
     if (0 == rank && options.graph) {
