@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
                     int check_idx = (i-options.skip) % CHECK_EVERY;
                     check_flags[check_idx] = flag;
                     check_wtime[check_idx] = t_stop - t_start;
-                    if (check_idx == (CHECK_EVERY-1) || i == (options.iterations + options.skip)) {
+                    if (check_idx == (CHECK_EVERY-1) || i == (options.iterations + options.skip - 1)) {
                         MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, check_flags, check_idx+1, MPI_INT,
                                                 MPI_LAND, MPI_COMM_WORLD));
                         for (int k = 0; k <= check_idx; ++k) {
