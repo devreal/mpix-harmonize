@@ -10,6 +10,9 @@
  */
 #include <osu_util_mpi.h>
 
+#include "osu_harmonize.h"
+HARMONIZE_DEFINE
+
 int main(int argc, char *argv[])
 {
     int i = 0, j, rank, size;
@@ -31,6 +34,7 @@ int main(int argc, char *argv[])
     int mpi_type_itr = 0, mpi_type_size = 0, mpi_type_name_length = 0;
     char mpi_type_name_str[OMB_DATATYPE_STR_MAX_LEN];
     MPI_Datatype mpi_type_list[OMB_NUM_DATATYPES];
+    HARMONIZE_INIT
 
     set_header(HEADER);
     set_benchmark_name("osu_bcast");
@@ -113,6 +117,8 @@ int main(int argc, char *argv[])
                                num_elements) *
                 mpi_type_size;
             num_elements = omb_ddt_get_size(num_elements);
+
+            HARMONIZE_PRE_MEASURE_LOOP
             for (i = 0; i < options.iterations + options.skip; i++) {
                 if (i == options.skip) {
                     omb_papi_start(&papi_eventset);
@@ -129,11 +135,13 @@ int main(int argc, char *argv[])
                     MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
                 }
 
+                HARMONIZE_BARRIER
+
                 t_start = MPI_Wtime();
                 MPI_CHECK(MPI_Bcast(buffer, num_elements, omb_curr_datatype, 0,
                                     MPI_COMM_WORLD));
                 t_stop = MPI_Wtime();
-                MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+                //MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
                 if (options.validate) {
                     local_errors +=
@@ -142,7 +150,9 @@ int main(int argc, char *argv[])
                 }
 
                 if (i >= options.skip) {
-                    timer += t_stop - t_start;
+                    //timer += t_stop - t_start;
+                    HARMONIZE_LOOP_CHECK
+
                     if (options.graph && 0 == rank) {
                         omb_graph_data->data[i - options.skip] =
                             (t_stop - t_start) * 1e6;
