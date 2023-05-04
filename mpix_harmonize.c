@@ -12,7 +12,6 @@
 
 #include "mpix_harmonize.h"
 
-static bool initialized = false;
 static int keyval;
 
 static reprompib_sync_module_t clock_sync;
@@ -45,6 +44,8 @@ typedef struct mpix_harmonize_state_t {
 } mpix_harmonize_state_t;
 
 static int get_harmonize_state(MPI_Comm comm, mpix_harmonize_state_t** data);
+
+static void sync_clocks(mpix_harmonize_state_t* state, MPI_Comm comm);
 
 int MPIX_Harmonize(
     MPI_Comm comm,
@@ -102,11 +103,7 @@ int MPIX_Harmonize(
     }
     if (barrier_stamp < 0.0) {
         /* resync required */
-        clock_sync.sync_clocks();
-        /* streamline sync jitter */
-        int zero = 0;
-        MPI_Reduce(MPI_IN_PLACE, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
-        data->last_sync_ts = REPROMPI_get_time();
+        sync_clocks(data, comm);
         /* determine a new barrier timestamp */
         barrier_stamp = clock_sync.get_global_time(data->last_sync_ts) + data->barrier_ts_slack;
         ret = MPI_Bcast(&barrier_stamp, 1, MPI_DOUBLE, 0, comm);
@@ -240,6 +237,7 @@ static void init_reprompi() {
 
 static int initialize_harmonize() {
     int ret;
+    static bool initialized = false;
     /* inline synchronization: create a keyval for the data we want to attach to the communicator */
     if (!initialized) {
         static pthread_mutex_t init_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -277,9 +275,21 @@ static int get_harmonize_state(MPI_Comm comm, mpix_harmonize_state_t** data_ptr)
         if (MPI_SUCCESS != ret) {
             return ret;
         }
+        /* initial clock sync */
+        sync_clocks(data, comm);
     }
     *data_ptr = data;
     return ret;
+}
+
+static void sync_clocks(mpix_harmonize_state_t* state, MPI_Comm comm)
+{
+    /* resync required */
+    clock_sync.sync_clocks();
+    /* streamline sync jitter */
+    int zero = 0;
+    MPI_Reduce(MPI_IN_PLACE, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
+    state->last_sync_ts = REPROMPI_get_time();
 }
 
 static double get_bcast_time(MPI_Comm comm) {
