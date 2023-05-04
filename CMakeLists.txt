@@ -14,8 +14,8 @@ set(ENABEL_GETTIME_MONOTONIC ON CACHE BOOL "Use gettime MONOTONIC")
 set(COMPILE_SANITY_CHECK_TESTS ON CACHE BOOL "Compile sanity checks")
 FetchContent_Declare(
     reproMPI
-    GIT_REPOSITORY      git@github.com:devreal/reprompi-dev-private.git
-    GIT_TAG             cmake_subproject
+    GIT_REPOSITORY      git@github.com:hunsa/reprompi-dev-private.git
+    GIT_TAG             time_barrier
 )
 FetchContent_MakeAvailable(reproMPI)
 
