@@ -287,8 +287,8 @@ static void sync_clocks(mpix_harmonize_state_t* state, MPI_Comm comm)
     /* resync required */
     clock_sync.sync_clocks();
     /* streamline sync jitter */
-    int zero = 0;
-    MPI_Reduce(MPI_IN_PLACE, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
+    int zero = 0, dummy;
+    MPI_Reduce(&dummy, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
     state->last_sync_ts = REPROMPI_get_time();
 }
 
