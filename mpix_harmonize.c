@@ -5,16 +5,12 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "reprompi_bench/sync/clock_sync/synchronization.h"
-//#include "reprompi_bench/sync/process_sync/process_synchronization.h"
-#include "reprompi_bench/utils/keyvalue_store.h"
-#include "reprompi_bench/sync/time_measurement.h"
-
+#include "mpits.h"
 #include "mpix_harmonize.h"
 
 static int keyval;
 
-static reprompib_sync_module_t clock_sync;
+static mpits_clocksync_t cs;
 
 static double bcast_time;
 
@@ -22,8 +18,8 @@ static double bcast_time;
 static
 int delete_attr_cb(MPI_Comm comm, int comm_keyval,
                    void *attribute_val, void *extra_state);
-static
-void reprompi_check_and_override_lib_env_params(int *argc, char ***argv);
+//static
+//void reprompi_check_and_override_lib_env_params(int *argc, char ***argv);
 
 static double get_bcast_time(MPI_Comm comm);
 
@@ -70,7 +66,7 @@ int MPIX_Harmonize(
      * 2) the last sync failed.
      **/
     int need_resync = data->sync_failed ? MPIX_HARMONIZE_LAST_SYNC_FAILED : 0;
-    if (REPROMPI_get_time() > (data->last_sync_ts + 1.0)) {
+    if (MPITS_Clocksync_get_time(&cs) > (data->last_sync_ts + 1.0)) {
         need_resync |= MPIX_HARMONIZE_SYNC_EXPIRED;
     }
     double barrier_stamp = 0.0;
@@ -87,7 +83,7 @@ int MPIX_Harmonize(
                 data->barrier_ts_slack *= 1.5;
             }
         } else {
-            barrier_stamp = clock_sync.get_global_time(REPROMPI_get_time()) + data->barrier_ts_slack;
+            barrier_stamp = MPITS_Clocksync_get_time(&cs) + data->barrier_ts_slack;
         }
     } else {
         ret = MPI_Reduce(&need_resync, NULL, 1, MPI_INT, MPI_MAX, 0, comm);
@@ -105,7 +101,7 @@ int MPIX_Harmonize(
         /* resync required */
         sync_clocks(data, comm);
         /* determine a new barrier timestamp */
-        barrier_stamp = clock_sync.get_global_time(data->last_sync_ts) + data->barrier_ts_slack;
+        barrier_stamp = data->last_sync_ts + data->barrier_ts_slack;
         ret = MPI_Bcast(&barrier_stamp, 1, MPI_DOUBLE, 0, comm);
         if (MPI_SUCCESS != ret) {
             fprintf(stderr, "MPI_Bcast returned %d\n", ret);
@@ -114,7 +110,7 @@ int MPIX_Harmonize(
     }
 
     /* check if we are within the time epoch */
-    if( clock_sync.get_global_time(REPROMPI_get_time()) > barrier_stamp ) {
+    if(MPITS_Clocksync_get_time(&cs) > barrier_stamp ) {
         *outflag = 0;
         data->sync_failed = 1;
     } else {
@@ -123,7 +119,7 @@ int MPIX_Harmonize(
     }
 
     /* wait for the epoch to end */
-    while(clock_sync.get_global_time(REPROMPI_get_time()) <=   barrier_stamp);
+    while(MPITS_Clocksync_get_time(&cs) <= barrier_stamp);
 
     return MPI_SUCCESS;
 }
@@ -228,10 +224,9 @@ static void init_reprompi() {
 
     reprompi_check_and_override_lib_env_params(&c_argc, &c_argv);
 
-    reprompib_register_sync_modules();
-    reprompib_init_sync_module(c_argc, c_argv, &clock_sync);
+    MPITS_Init(&c_argc, &c_argv, &cs, MPI_COMM_WORLD);
+    MPITS_Clocksync_init(&cs);
 
-    clock_sync.init_sync();
     bcast_time = get_bcast_time(MPI_COMM_WORLD);
 }
 
@@ -285,11 +280,11 @@ static int get_harmonize_state(MPI_Comm comm, mpix_harmonize_state_t** data_ptr)
 static void sync_clocks(mpix_harmonize_state_t* state, MPI_Comm comm)
 {
     /* resync required */
-    clock_sync.sync_clocks();
+    MPITS_Clocksync_sync(&cs);
     /* streamline sync jitter */
     int zero = 0, dummy;
     MPI_Reduce(&dummy, &zero, 1, MPI_INT, MPI_SUM, 0, comm);
-    state->last_sync_ts = REPROMPI_get_time();
+    state->last_sync_ts = MPITS_Clocksync_get_time(&cs);
 }
 
 static double get_bcast_time(MPI_Comm comm) {
@@ -299,9 +294,9 @@ static double get_bcast_time(MPI_Comm comm) {
   double timestamp;
 
   for(int i=0; i<n_bcasts; i++) {
-    timestamp = REPROMPI_get_time();
+    timestamp = MPITS_get_time();
     MPI_Bcast(&bcast_data, 1, MPI_DOUBLE, 0, comm);
-    max_avg_time += REPROMPI_get_time() - timestamp;
+    max_avg_time += MPITS_get_time() - timestamp;
   }
   max_avg_time /= n_bcasts;
   MPI_Allreduce(MPI_IN_PLACE, &max_avg_time, 1, MPI_DOUBLE, MPI_MAX, comm);

@@ -5,22 +5,18 @@ include(GNUInstallDirs)
 
 find_package(MPI REQUIRED)
 
-
-# pull in reprompi
+# pull in mpits
 include(FetchContent)
-set(INCLUDE_PLATFORM_CONFIG_FILE "${CMAKE_BINARY_DIR}/_deps/reprompi-src/platform_files/default.cmake")
-set(COMPILE_BENCH_LIBRARY ON CACHE BOOL "Compile Bench Library")
-set(ENABEL_GETTIME_MONOTONIC ON CACHE BOOL "Use gettime MONOTONIC")
-set(COMPILE_SANITY_CHECK_TESTS ON CACHE BOOL "Compile sanity checks")
 FetchContent_Declare(
-    reproMPI
-    GIT_REPOSITORY      git@github.com:hunsa/reprompi-dev-private.git
-    GIT_TAG             time_barrier
+    mpits
+    GIT_REPOSITORY      git@github.com:hunsa/mpi-time-sync.git
+    GIT_TAG             main
 )
-FetchContent_MakeAvailable(reproMPI)
+FetchContent_MakeAvailable(mpits)
+include_directories(${mpits_SOURCE_DIR}/include)
 
 add_library(mpix-harmonize SHARED mpix_harmonize.c)
-target_link_libraries(mpix-harmonize PUBLIC reproMPIbench MPI::MPI_C)
+target_link_libraries(mpix-harmonize PUBLIC mpits MPI::MPI_C)
 set_target_properties(mpix-harmonize PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(mpix-harmonize PROPERTIES PUBLIC_HEADER mpix_harmonize.h)
 
