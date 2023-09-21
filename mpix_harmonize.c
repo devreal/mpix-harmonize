@@ -18,14 +18,12 @@ static double bcast_time;
 static
 int delete_attr_cb(MPI_Comm comm, int comm_keyval,
                    void *attribute_val, void *extra_state);
-//static
-//void reprompi_check_and_override_lib_env_params(int *argc, char ***argv);
 
 static double get_bcast_time(MPI_Comm comm);
 
 static int initialize_harmonize();
 
-static void init_reprompi();
+static void init_mpits();
 
 enum {
     MPIX_HARMONIZE_SYNC_EXPIRED     = 1<<0,
@@ -217,7 +215,7 @@ static void reprompi_check_and_override_lib_env_params(int *argc, char ***argv) 
 
 }
 
-static void init_reprompi() {
+static void init_mpits() {
 
     int c_argc;
     char **c_argv;
@@ -245,7 +243,7 @@ static int initialize_harmonize() {
             if (MPI_SUCCESS != ret) {
                 return ret;
             }
-            init_reprompi();
+            init_mpits();
             initialized = true;
         }
         pthread_mutex_unlock(&init_mtx);
