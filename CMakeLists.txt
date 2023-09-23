@@ -21,17 +21,6 @@ else()
     message(FATAL_ERROR "Invalid value for MPITS_CLOCK: ${MPITS_CLOCK}. Allowed values are:  mpi_wtime, monotonic, or realtime.")
 endif()
 
-## pull in mpits
-#include(FetchContent)
-#FetchContent_Declare(
-#    mpits
-#    GIT_REPOSITORY      git@github.com:hunsa/mpi-time-sync.git
-#    GIT_TAG             main
-#    CMAKE_ARGS          "${MPITS_CMAKE_ARGS}"
-#)
-#FetchContent_MakeAvailable(mpits)
-#include_directories(${mpits_SOURCE_DIR}/include)
-
 ExternalProject_Add(
         mpits_project
         PREFIX          ${CMAKE_BINARY_DIR}/_deps
@@ -52,9 +41,6 @@ set_target_properties(mpits_lib PROPERTIES
         IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/_deps/lib/libmpits${CMAKE_SHARED_LIBRARY_SUFFIX}
         INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}/_deps/include
 )
-
-#add_library(mpits_lib STATIC IMPORTED)
-#ExternalProject_Get_Property(mpits install_dir)
 
 add_library(mpix-harmonize SHARED mpix_harmonize.c)
 target_link_libraries(mpix-harmonize PUBLIC mpits_lib MPI::MPI_C)
