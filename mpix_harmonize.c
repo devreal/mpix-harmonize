@@ -173,56 +173,51 @@ static int compute_argc(char *str) {
     return cnt;
 }
 
-static void reprompi_check_and_override_lib_env_params(int *argc, char ***argv) {
-    char *env = getenv("REPROMPI_LIB_PARAMS");
-    char **argvnew;
-
-    if( env != NULL ) {
-        char *token;
-        //printf("env:%s\n", env);
-        *argc = compute_argc(env) + 1;  // + 1 is for argv[0], which we'll copy
-        //printf("argc: %d\n", *argc);
-
-//    printf("(*argv)[0]=%s\n", (*argv)[0]);
-
-        //  TODO: we should probably free the old argv
-        argvnew = (char**)malloc(*argc * sizeof(char**));
-        // copy old argv[0]
-
-        char *fake_arg0 = (char*) malloc(50*sizeof(char));
-        strcpy(fake_arg0, "mpi_time_barrier");
-
-        argvnew[0] = fake_arg0;
-
-    //printf("argvnew[0]=%s\n", argvnew[0]);
-
-        token = strtok(env, " ");
-        if( token != NULL ) {
-      //printf("token: %s\n", token);
-            argvnew[1] = token;
-      //printf("argvnew[1]=%s\n", argvnew[1]);
-            for(int i=2; i<*argc; i++) {
-                token = strtok(NULL, " ");
-                if( token != NULL ) {
-          //printf("token: %s\n", token);
-                    argvnew[i] = token;
-                }
-            }
-        }
-
-        *argv = argvnew;
-    }
-
-}
+//static void reprompi_check_and_override_lib_env_params(int *argc, char ***argv) {
+//    char *env = getenv("REPROMPI_LIB_PARAMS");
+//    char **argvnew;
+//
+//    if( env != NULL ) {
+//        char *token;
+//        //printf("env:%s\n", env);
+//        *argc = compute_argc(env) + 1;  // + 1 is for argv[0], which we'll copy
+//        //printf("argc: %d\n", *argc);
+//
+////    printf("(*argv)[0]=%s\n", (*argv)[0]);
+//
+//        //  TODO: we should probably free the old argv
+//        argvnew = (char**)malloc(*argc * sizeof(char**));
+//        // copy old argv[0]
+//
+//        char *fake_arg0 = (char*) malloc(50*sizeof(char));
+//        strcpy(fake_arg0, "mpi_time_barrier");
+//
+//        argvnew[0] = fake_arg0;
+//
+//    //printf("argvnew[0]=%s\n", argvnew[0]);
+//
+//        token = strtok(env, " ");
+//        if( token != NULL ) {
+//      //printf("token: %s\n", token);
+//            argvnew[1] = token;
+//      //printf("argvnew[1]=%s\n", argvnew[1]);
+//            for(int i=2; i<*argc; i++) {
+//                token = strtok(NULL, " ");
+//                if( token != NULL ) {
+//          //printf("token: %s\n", token);
+//                    argvnew[i] = token;
+//                }
+//            }
+//        }
+//
+//        *argv = argvnew;
+//    }
+//
+//}
 
 static void init_mpits() {
 
-    int c_argc;
-    char **c_argv;
-
-    reprompi_check_and_override_lib_env_params(&c_argc, &c_argv);
-
-    MPITS_Init(&c_argc, &c_argv, &cs, MPI_COMM_WORLD);
+    MPITS_Init(MPI_COMM_WORLD, &cs);
     MPITS_Clocksync_init(&cs);
 
     bcast_time = get_bcast_time(MPI_COMM_WORLD);

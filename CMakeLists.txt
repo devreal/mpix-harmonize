@@ -29,21 +29,25 @@ ExternalProject_Add(
         CMAKE_ARGS      -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/_deps ${MPITS_CMAKE_ARGS}
 )
 
+# Get properties of the external project
+ExternalProject_Get_Property(mpits_project SOURCE_DIR BINARY_DIR INSTALL_DIR)
+#message(STATUS "Project properties: ${SOURCE_DIR} ${BINARY_DIR} ${INSTALL_DIR}")
 
-link_directories(${CMAKE_BINARY_DIR}/_deps/lib)
-include_directories(${CMAKE_BINARY_DIR}/_deps/include)
+link_directories(${INSTALL_DIR}/lib)
+include_directories(${INSTALL_DIR}/include)
 
 
-add_library(mpits_lib STATIC IMPORTED)
+add_library(mpits_lib SHARED IMPORTED)
 add_dependencies(mpits_lib mpits_project)
 
-set_target_properties(mpits_lib PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_BINARY_DIR}/_deps/lib/libmpits${CMAKE_SHARED_LIBRARY_SUFFIX}
-        INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR}/_deps/include
-)
+
+#set_target_properties(mpits_lib PROPERTIES
+#        IMPORTED_LOCATION ${INSTALL_DIR}/lib/libmpits${CMAKE_SHARED_LIBRARY_SUFFIX}
+#        INTERFACE_INCLUDE_DIRECTORIES ${INSTALL_DIR}/include
+#)
 
 add_library(mpix-harmonize SHARED mpix_harmonize.c)
-target_link_libraries(mpix-harmonize PUBLIC mpits_lib MPI::MPI_C)
+target_link_libraries(mpix-harmonize PUBLIC mpits  MPI::MPI_C)
 set_target_properties(mpix-harmonize PROPERTIES VERSION ${PROJECT_VERSION})
 set_target_properties(mpix-harmonize PROPERTIES PUBLIC_HEADER mpix_harmonize.h)
 set_target_properties(mpix-harmonize PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
