@@ -8,6 +8,5 @@ Description: Library for harmonizing the execution of MPI processes
 Version: @PROJECT_VERSION@
 Requires: mpits
 Libs: -L${libdir} -lmpix-harmonize @EXTRA_LIBS_EXPANDED@ @EXTRA_LDFLAGS@
-#Libs.private: @PAPI_LIBRARIES@
 Cflags: -I${includedir} @EXTRA_INCLUDES_EXPANDED@ @EXTRA_CFLAGS@
 

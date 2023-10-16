@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(mpix-harmonize VERSION 0.1 LANGUAGES C DESCRIPTION "Implementation of MPIX_Harmonize")
 
+# option() should ignore existing variables
+cmake_policy(SET CMP0077 NEW)
+
 include(GNUInstallDirs)
 include(FetchContent)
 include(CMakePackageConfigHelpers)
@@ -14,9 +17,9 @@ message(STATUS "mpits clock: ${MPITS_CLOCK}")
 if(${MPITS_CLOCK} STREQUAL "mpi_wtime")
     # default, do nothing
 elseif(${MPITS_CLOCK} STREQUAL "monotonic")
-    set(ENABLE_GETTIME_MONOTONIC ON)
+    set(ENABLE_GETTIME_MONOTONIC ON CACHE BOOL "Enable gettime(MONOTONIC)")
 elseif(${MPITS_CLOCK} STREQUAL "realtime")
-    set(ENABLE_GETTIME_REALTIME ON)
+    set(ENABLE_GETTIME_REALTIME ON CACHE BOOL "Enable gettime(REALTIME)")
 else()
     message(FATAL_ERROR "Invalid value for MPITS_CLOCK: ${MPITS_CLOCK}. Allowed values are:  mpi_wtime, monotonic, or realtime.")
 endif()
@@ -37,12 +40,6 @@ FetchContent_Declare(
         GIT_TAG main)
 
 FetchContent_MakeAvailable(MPITS)
-FetchContent_GetProperties(
-        MPITS
-        SOURCE_DIR MPITS_SOURCE_DIR
-        BINARY_DIR MPITS_BINARY_DIR
-        INCLUDE_DIR MPITS_INCLUDE_DIR
-        INSTALL_DIR MPITS_INSTALL_DIR )
 
 export(EXPORT mpits-targets FILE "${PROJECT_BINARY_DIR}/mpits-targets.cmake")
 set(MPITS_CONFIG ${CMAKE_INSTALL_PREFIX}/share/cmake/mpits/mpits-config.cmake)
