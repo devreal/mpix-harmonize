@@ -8,10 +8,12 @@
 #export MPITS_PARAMS="--clock-sync=Topo2 --params=topoalg1:hca3offset@skampi_offset@5@20 --params=topoalg2:prop@0"
 export MPITS_PARAMS="--clock-sync=HCA3O --params=alg:hca3offset@skampi_offset@5@20"
 
-# build like so
+## build like so
 # export MPIX_PATH=$HOME/<MYPATH>/mpix-harmonize
-# export MPIX_PATH="$(pwd)/../.."
-# ./configure CC=mpicc CXX=mpicxx CFLAGS="-I${MPIX_PATH}" LDFLAGS="-L${MPIX_PATH} -lmpix-harmonize"
+## let the dynamic linker know where to find libmpix_harmonize.so
+# export LD_LIBRARY_PATH=${MPIX_PATH}/lib:$LD_LIBRARY_PATH
+# export PKG_CONFIG_PATH=${MPIX_PATH}/share/pkgconfig:$PKG_CONFIG_PATH
+#
+# ./configure CC=mpicc CXX=mpicxx
 # make
-# export LD_LIBRARY_PATH=$MPIX_PATH:$LD_LIBRARY_PATH
 # mpirun -np 16 ./c/mpi/collective/blocking/osu_reduce -f

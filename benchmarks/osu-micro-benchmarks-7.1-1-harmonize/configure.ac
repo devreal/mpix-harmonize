@@ -269,6 +269,8 @@ AM_CONDITIONAL([BUILD_USE_PGI], [`$CXX -V 2>&1 | grep pgc++ > /dev/null 2>&1`])
 AC_DEFINE([FIELD_WIDTH], [18], [Width of field used to report numbers])
 AC_DEFINE([FLOAT_PRECISION], [2], [Precision of reported numbers])
 
+PKG_CHECK_MODULES(MPIX_HARMONIZE, [mpix-harmonize], [], [AC_MSG_ERROR([cannot find MPIX_Harmonize module])])
+
 AC_CONFIG_FILES([Makefile c/Makefile c/mpi/Makefile c/mpi/pt2pt/Makefile
                  c/mpi/startup/Makefile c/mpi/one-sided/Makefile
                  c/mpi/collective/Makefile c/openshmem/Makefile

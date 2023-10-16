@@ -13,6 +13,7 @@ block_coll_PROGRAMS = osu_alltoallv osu_alltoallw osu_allgatherv osu_scatterv \
 					  osu_allreduce osu_alltoall osu_bcast osu_gather \
 					  osu_allgather osu_scatter
 AM_CFLAGS = -I${top_srcdir}/c/util
+AM_CFLAGS += ${MPIX_HARMONIZE_CFLAGS}
 
 UTILITIES = ../../../util/osu_util.c ../../../util/osu_util.h \
 ../../../util/osu_util_mpi.c ../../../util/osu_util_mpi.h \
@@ -50,6 +51,9 @@ if BUILD_PROFILING_LIB
     AM_LDFLAGS += $(top_builddir)/../lib/lib@PMPILIBNAME@.la
 endif
     AM_LDFLAGS += $(top_builddir)/../lib/lib@MPILIBNAME@.la
+    AM_LDFLAGS += ${MPIX_HARMONIZE_LIBS}
+else
+    AM_LDFLAGS = ${MPIX_HARMONIZE_LIBS}
 endif
 
 if OPENACC
