@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}/@CMAKE_INSTALL_BINDIR@
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: MPIX-HARMONIZE
+Description: Library for harmonizing the execution of MPI processes
+Version: @PROJECT_VERSION@
+Requires: mpits
+Libs: -L${libdir} -lmpix-harmonize @EXTRA_LIBS_EXPANDED@ @EXTRA_LDFLAGS@
+Cflags: -I${includedir} @EXTRA_INCLUDES_EXPANDED@ @EXTRA_CFLAGS@
+
