@@ -20,9 +20,12 @@ cmake -DCMAKE_INSTALL_PREFIX=<YOUR_PATH> .
 
 ## Time Source
 The clock synchronization algorithms depend on the time source used internally.
-By default, `libmpix-harmonize` will use `MPI_Wtime` as its source of time. Then, the library uses the timing function that is provided by the MPI library, which may be mapped to different kernel functions internally.
+By default, `libmpix-harmonize` will use `clock_gettime(CLOCK_MONOTONIC,..)` as its source of time. 
+Then, the library uses the timing function that is provided by the MPI library, 
+which may be mapped to different timing function internally.
 
-The `libmpix-harmonize` library can also be configured to use a specific time function internally. Thusm, in order to use `clock_gettime()` with `CLOCK_MONOTONIC` configure with
+The `libmpix-harmonize` library can also be configured to use a specific time function internally. 
+Thus, in order to use `clock_gettime()` with `CLOCK_MONOTONIC` configure with
 ```sh
 cmake -DMPITS_CLOCK=monotonic .
 ```
