@@ -10,18 +10,21 @@ include(CMakePackageConfigHelpers)
 
 find_package(MPI REQUIRED)
 
-set(MPITS_CLOCK "mpi_wtime" CACHE STRING "time source in libmpits")
+set(MPITS_CLOCK "monotonic" CACHE STRING "time source in libmpits")
 set_property(CACHE MPITS_CLOCK PROPERTY STRINGS mpi_wtime monotonic realtime)
 message(STATUS "mpits clock: ${MPITS_CLOCK}")
 
 if(${MPITS_CLOCK} STREQUAL "mpi_wtime")
-    # default, do nothing
+    set(ENABLE_GETTIME_MONOTONIC OFF CACHE BOOL "Enable gettime(MONOTONIC)")
+    set(ENABLE_GETTIME_REALTIME OFF CACHE BOOL "Enable gettime(REALTIME)")
 elseif(${MPITS_CLOCK} STREQUAL "monotonic")
     set(ENABLE_GETTIME_MONOTONIC ON CACHE BOOL "Enable gettime(MONOTONIC)")
+    set(ENABLE_GETTIME_REALTIME OFF CACHE BOOL "Enable gettime(REALTIME)")
 elseif(${MPITS_CLOCK} STREQUAL "realtime")
+    set(ENABLE_GETTIME_MONOTONIC OFF CACHE BOOL "Enable gettime(MONOTONIC)")
     set(ENABLE_GETTIME_REALTIME ON CACHE BOOL "Enable gettime(REALTIME)")
 else()
-    message(FATAL_ERROR "Invalid value for MPITS_CLOCK: ${MPITS_CLOCK}. Allowed values are:  mpi_wtime, monotonic, or realtime.")
+    message(FATAL_ERROR "Invalid value for MPITS_CLOCK: ${MPITS_CLOCK}. Allowed values are: mpi_wtime, monotonic, or realtime.")
 endif()
 
 
